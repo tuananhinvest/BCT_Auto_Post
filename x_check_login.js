@@ -9,10 +9,11 @@ const mysql = require('mysql2/promise');
 require('dotenv').config();
 
 const dbConfig = {
-    host: '45.77.168.11',
-    user: 'tuananh',
-    password: 'tuananhinvest',
-    database: 'income_data',
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER, 
+    password: process.env.DB_PASSWORD, 
+    database: process.env.DB_DATABASE
 };
 
 async function sleep(ms) {
@@ -21,26 +22,52 @@ async function sleep(ms) {
 
 // ===== CONNECT CHROME =====
 async function connectExisting() {
-    const browser = await puppeteer.connect({
-        browserURL: 'http://127.0.0.1:9222',
-        defaultViewport: null
-    });
+    try {
+        const browser = await puppeteer.connect({
+            browserURL: 'http://127.0.0.1:9222',
+            defaultViewport: null
+        });
 
-    const pages = await browser.pages();
-    const page = pages.length ? pages[0] : await browser.newPage();
+        console.log('✅ Connected Chrome');
 
-    await page.setExtraHTTPHeaders({
-        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7'
-    });
+        const pages = await browser.pages();
 
-    try { await page.emulateTimezone('Asia/Ho_Chi_Minh'); } catch {}
+        const lastPage = pages[pages.length - 1];
+        
+        for (const p of pages) {
+            const url = p.url();
 
-    return { page };
+            // 👉 BỎ QUA TAB KHÔNG ĐÓNG ĐƯỢC
+            if (
+                url.startsWith('chrome://') ||
+                url.startsWith('devtools://') ||
+                url.startsWith('chrome-extension://')
+            ) {
+                console.log('⏭️ Skip:', url);
+                continue;
+            }
+
+            if (p !== lastPage) {
+                console.log('👉 Closing:', url);
+                await p.close();
+                console.log('👉 Close done:', url);
+                await sleep(500);
+            }
+        }
+        
+        const page = await browser.newPage();
+
+        return { page };
+
+    } catch (e) {
+        console.error('❌ Không connect được Chrome:', e.message);
+        throw e;
+    }
 }
 
 // ===== CHECK LOGIN =====
 async function checkLoginX(page) {
-    await page.goto('https://x.com/home', { waitUntil: 'networkidle2' });
+    await page.goto('https://x.com/home', { waitUntil: 'domcontentloaded' });
     return page.url().includes('/home');
 }
 
@@ -55,7 +82,7 @@ async function getArticles() {
         AND \`group\` = ?
         ORDER BY id DESC
         LIMIT 10
-    `, ['-1002494162336']);
+    `, ['-5125359663']);
 
     await conn.end();
     return rows;
@@ -112,7 +139,7 @@ async function inputContent(page, content) {
 
 // ===== UPLOAD IMAGE =====
 async function uploadImage(page, id) {
-    const imagePath = path.join(__dirname, 'photo', `${id}-1002494162336.jpg`);
+    const imagePath = path.join(__dirname, 'photo', `${id}-5125359663.jpg`);
 
     if (!fs.existsSync(imagePath)) {
         console.log('⚠️ Không có ảnh → vẫn đăng');
@@ -154,7 +181,7 @@ async function clickPost(page) {
     // scroll cho chắc
     await page.evaluate(el => el.scrollIntoView({ block: 'center' }), btn);
 
-    await sleep(500);
+    await sleep(2000);
 
     await btn.click();
 
@@ -175,9 +202,9 @@ async function clickPost(page) {
 async function postOne(page, article) {
     console.log(`📝 Đăng ID ${article.id}`);
 
-    await page.goto('https://x.com/home', {
-        waitUntil: 'networkidle2'
-    });
+    //await page.goto('https://x.com/home', {
+    //    waitUntil: 'load'
+    //});
 
     const content = article.article;
 
@@ -200,6 +227,8 @@ async function runBot() {
     const { page } = await connectExisting();
 
     const isLogged = await checkLoginX(page);
+
+    console.log("Đang vào X");
 
     if (!isLogged) {
         console.log('❌ Chưa login → login tay trước');

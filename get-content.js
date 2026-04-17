@@ -12,10 +12,17 @@ const input = require("input");
 const apiId = Number(process.env.TELEGRAM_API_ID);
 const apiHash = process.env.TELEGRAM_API_HASH;
 const sessionString = process.env.TELEGRAM_SESSION;
-
 const GROUPS = ["-5125359663"];
-
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID;
+
+// ===== DB =====
+const dbConfig = {
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD, 
+    database: process.env.DB_DATABASE
+};
 
 // ===== VALIDATE =====
 if (!apiId || !apiHash) {
@@ -23,14 +30,6 @@ if (!apiId || !apiHash) {
 }
 
 const stringSession = new StringSession(sessionString || "");
-
-// ===== DB =====
-const dbConfig = {
-    host: '45.77.168.11',
-    user: 'tuananh',
-    password: 'tuananhinvest',
-    database: 'income_data',
-};
 
 // ===== PATH =====
 const photoDir = path.join(__dirname, 'photo');

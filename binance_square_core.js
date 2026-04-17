@@ -14,11 +14,11 @@ const BINANCE_REF_TEXT = `
 - Mã giới thiệu: KO2C41E8`;
 
 const dbConfig = {
-    host: '45.77.168.11',
-    port: '3306',
-    user: 'tuananh',
-    password: 'tuananhinvest',
-    database: 'income_data',
+    host: process.env.DB_HOST,
+    port: process.env.DB_PORT,
+    user: process.env.DB_USER, 
+    password: process.env.DB_PASSWORD, 
+    database: process.env.DB_DATABASE,
     charset: 'utf8mb4'
 };
 
@@ -63,7 +63,7 @@ async function connectChrome() {
         
         const page = await browser.newPage();
 
-        return { page };
+        return { browser, page };
 
     } catch (e) {
         console.error('❌ Không connect được Chrome:', e.message);
@@ -93,7 +93,7 @@ async function getLatestArticle() {
         SELECT id, article
         FROM content
         WHERE binance_square_status = 0
-        AND \`group\` = -1002494162336
+        AND \`group\` = -5125359663
         ORDER BY id DESC
         LIMIT 10
     `);
@@ -335,7 +335,7 @@ async function openBinanceSquare() {
 
                     await sleep(60 * 60 * 1000);
 
-                    await openBinanceSquare();
+                    //await openBinanceSquare();
 
                     return;
 
