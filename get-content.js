@@ -13,10 +13,7 @@ const apiId = Number(process.env.TELEGRAM_API_ID);
 const apiHash = process.env.TELEGRAM_API_HASH;
 const sessionString = process.env.TELEGRAM_SESSION;
 
-const GROUPS = [
-    "-1002494162336",
-    "-5125359663",
-];
+const GROUPS = ["-5125359663"];
 
 const CHANNEL_ID = process.env.TELEGRAM_CHANNEL_ID;
 
@@ -234,6 +231,6 @@ async function runPostLoop(client) {
     }));
 
     // ===== START POST LOOP =====
-    runPostLoop(client);
+    //runPostLoop(client);
 
 })();

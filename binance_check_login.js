@@ -27,7 +27,7 @@ async function checkLogin() {
     const maxWaitTime = 60000;
     while (true) {
         const browser = await puppeteer.launch({
-            headless: true,
+            headless: false,
             args: [
                 "--no-sandbox",
                 "--disable-gpu",
@@ -47,6 +47,8 @@ async function checkLogin() {
             // await page.goto('https://binance.com/');
             await loadCookies(page);
             await page.goto('https://www.binance.com/en/my/dashboard?type=checkLogin', { waitUntil: 'networkidle0', timeout: 120000 });
+
+            await sleep(3*60000);
 
             if (page.url().includes('dashboard')) {
                 console.log("[CHECKLOGIN] Đăng nhập thành công!");

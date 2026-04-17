@@ -1,6 +1,6 @@
-//"C:\Program Files\Google\Chrome\Application\chrome.exe" ^
-//More? --remote-debugging-port=9222 ^
-//More? --user-data-dir="D:\chrome-debug\x-profile"
+///Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+//--remote-debugging-port=9222 \
+//--user-data-dir="$HOME/chrome-debug/x-profile"
 
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
