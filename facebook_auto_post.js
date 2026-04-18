@@ -8,7 +8,6 @@ const path = require('path');
 const mysql = require('mysql2/promise');
 require('dotenv').config();
 
-// ===== DB =====
 const dbConfig = {
     host: process.env.DB_HOST,
     port: process.env.DB_PORT,
@@ -38,21 +37,46 @@ async function checkLoginFacebook(page) {
 }
 
 async function connectFacebook() {
-    const browser = await puppeteer.connect({
-        browserURL: 'http://127.0.0.1:9333',
-        defaultViewport: null
-    });
+    try {
+        const browser = await puppeteer.connect({
+            browserURL: 'http://127.0.0.1:9222',
+            defaultViewport: null
+        });
 
-    const pages = await browser.pages();
-    const page = pages.length ? pages[0] : await browser.newPage();
+        console.log('✅ Connected Chrome');
 
-    await page.setExtraHTTPHeaders({
-        'Accept-Language': 'vi-VN,vi;q=0.9,en-US;q=0.8'
-    });
+        const pages = await browser.pages();
 
-    try { await page.emulateTimezone('Asia/Ho_Chi_Minh'); } catch {}
+        const lastPage = pages[pages.length - 1];
+        
+        for (const p of pages) {
+            const url = p.url();
 
-    return { page };
+            // 👉 BỎ QUA TAB KHÔNG ĐÓNG ĐƯỢC
+            if (
+                url.startsWith('chrome://') ||
+                url.startsWith('devtools://') ||
+                url.startsWith('chrome-extension://')
+            ) {
+                console.log('⏭️ Skip:', url);
+                continue;
+            }
+
+            if (p !== lastPage) {
+                console.log('👉 Closing:', url);
+                await p.close();
+                await sleep(500);
+            }
+        }
+        
+        const page = await browser.newPage();
+
+        return { page };
+
+    } catch (e) {
+        console.error('❌ Không connect được Chrome:', e.message);
+        throw e;
+    }
 }
 
 // ===== GET DATA =====
@@ -66,7 +90,7 @@ async function getFacebookArticles() {
         AND \`group\` = ?
         ORDER BY id DESC
         LIMIT 10
-    `, ['-1002494162336']);
+    `, ['-5125359663']);
 
     await conn.end();
     return rows;
@@ -87,6 +111,31 @@ async function markFacebookDone(id) {
     console.log(`✅ Updated facebook_status ID ${id}`);
 }
 
+async function findFileInput(page) {
+    const frames = page.frames();
+
+    for (const frame of frames) {
+        const input = await frame.$('input[type="file"]');
+        if (input) return input;
+    }
+    return null;
+}
+
+async function handleReloadDialog(page) {
+    page.on('dialog', async dialog => {
+        const msg = dialog.message();
+
+        if (msg.includes('Tải lại') || msg.includes('reload')) {
+            console.log('🔄 Phát hiện dialog reload');
+
+            await dialog.accept();
+        } else {
+            console.log('⚠️ Dialog khác:', msg);
+            await dialog.dismiss(); // hoặc accept tùy bạn
+        }
+    });
+}
+
 async function uploadFacebookImage(page, articleId) {
     try {
         const imagePath = path.join(__dirname, 'photo', `${articleId}-1002494162336.jpg`);
@@ -96,21 +145,18 @@ async function uploadFacebookImage(page, articleId) {
             return false;
         }
 
-        // ===== BẮT FILE CHOOSER =====
+        // ⚠️ BẮT file chooser ĐÚNG CÁCH
         const [fileChooser] = await Promise.all([
             page.waitForFileChooser(),
-            page.evaluate(() => {
-                const spans = Array.from(document.querySelectorAll('span'));
-                const btn = spans.find(el => el.innerText.trim() === 'Thêm ảnh/video');
-                if (btn) btn.click();
-            })
+            page.click('[aria-label="Chọn thêm ảnh."]') // phải là click thật
         ]);
 
+        // Upload file
         await fileChooser.accept([imagePath]);
 
         console.log('📸 Upload ảnh thành công (fileChooser)');
 
-        await sleep(5000);
+        await sleep(3000);
 
         return true;
 
@@ -120,21 +166,30 @@ async function uploadFacebookImage(page, articleId) {
     }
 }
 
+
 async function inputFacebookContent(page, content) {
     try {
-        const editor = await page.waitForSelector('[contenteditable="true"]', {
-            timeout: 10000
+        // chỉ lấy editor đang visible
+        const editor = await page.evaluateHandle(() => {
+            const editors = Array.from(document.querySelectorAll('[contenteditable="true"]'));
+            return editors.find(el => el.offsetParent !== null); // chỉ lấy cái đang hiển thị
         });
 
         if (!editor) {
-            console.log('❌ Không tìm thấy editor');
+            console.log('❌ Không tìm thấy editor visible');
             return false;
         }
 
-        await editor.click();
+        const el = editor.asElement();
+
+        await el.click();
 
         await page.evaluate((text) => {
-            const el = document.querySelector('[contenteditable="true"]');
+            const editors = Array.from(document.querySelectorAll('[contenteditable="true"]'));
+            const el = editors.find(e => e.offsetParent !== null);
+
+            if (!el) return;
+
             el.focus();
 
             const dataTransfer = new DataTransfer();
@@ -151,7 +206,7 @@ async function inputFacebookContent(page, content) {
         await page.keyboard.press(' ');
         await page.keyboard.press('Backspace');
 
-        console.log('✍️ Đã nhập nội dung');
+        console.log('✍️ Đã nhập nội dung (visible editor)');
 
         return true;
 
@@ -163,17 +218,33 @@ async function inputFacebookContent(page, content) {
 
 // ===== POST =====
 async function postOneFacebook(page, article) {
-    console.log(`📝 FB Đăng ID ${article.id}`);
+    console.log(`📝 GROUP Đăng ID ${article.id}`);
 
-    await page.goto('https://business.facebook.com/latest/composer/?asset_id=287755947762680', {
-        waitUntil: 'networkidle2'
+    await page.goto('https://www.facebook.com/groups/9720991467921048', {
+        waitUntil: 'domcontentloaded'
     });
 
     await sleep(5000);
 
+    // ===== 1. CLICK "BẠN VIẾT GÌ ĐI..." =====
+    const openBox = await page.evaluateHandle(() => {
+        const spans = Array.from(document.querySelectorAll('span'));
+        return spans.find(el => el.innerText.includes('Bạn viết gì'));
+    });
+
+    if (!openBox) {
+        console.log('❌ Không tìm thấy ô tạo bài viết');
+        return false;
+    }
+
+    await openBox.click();
+    console.log('✍️ Đã mở popup viết bài');
+
+    await sleep(3000);
+
     const content = article.article;
 
-    // ===== INPUT CONTENT =====
+    // ===== 2. INPUT CONTENT =====
     const okContent = await inputFacebookContent(page, content);
 
     if (!okContent) {
@@ -181,18 +252,39 @@ async function postOneFacebook(page, article) {
         return false;
     }
 
-    // ===== UPLOAD IMAGE =====
-    const okImage = await uploadFacebookImage(page, article.id);
+    // ===== 3. UPLOAD IMAGE (fileChooser) =====
+    const imagePath = path.join(__dirname, 'photo', `${article.id}-5125359663.jpg`);
 
-    if (!okImage) {
-        console.log('❌ Không có ảnh hoặc upload fail → KHÔNG đăng');
+    if (!fs.existsSync(imagePath)) {
+        console.log('❌ Không có ảnh → KHÔNG đăng');
         return false;
     }
 
-    // ===== CLICK ĐĂNG =====
+    try {
+        const [fileChooser] = await Promise.all([
+            page.waitForFileChooser(),
+            page.evaluate(() => {
+                const btns = Array.from(document.querySelectorAll('div[role="button"]'));
+                const btn = btns.find(el => el.innerText.includes('Ảnh') || el.innerText.includes('photo'));
+                if (btn) btn.click();
+            })
+        ]);
+
+        await fileChooser.accept([imagePath]);
+
+        console.log('📸 Upload ảnh thành công');
+
+        await sleep(5000);
+
+    } catch (err) {
+        console.log('❌ Lỗi upload ảnh:', err.message);
+        return false;
+    }
+
+    // ===== 4. CLICK ĐĂNG =====
     const postBtn = await page.evaluateHandle(() => {
-        const els = Array.from(document.querySelectorAll('div[role="button"]'));
-        return els.find(el => el.innerText.trim() === 'Đăng');
+        const btns = Array.from(document.querySelectorAll('div[role="button"]'));
+        return btns.find(el => el.innerText.trim() === 'Đăng');
     });
 
     if (!postBtn) {
@@ -202,7 +294,7 @@ async function postOneFacebook(page, article) {
 
     await postBtn.click();
 
-    console.log('🚀 Đã click Đăng');
+    console.log('🚀 Đã đăng bài GROUP');
 
     await sleep(5000);
 
@@ -214,6 +306,8 @@ async function postOneFacebook(page, article) {
 // ===== MAIN FLOW =====
 async function runFacebookBot() {
     const { page } = await connectFacebook();
+
+    await handleReloadDialog(page);
 
     console.log('🚀 Bắt đầu đăng Facebook');
 
