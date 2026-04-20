@@ -209,8 +209,11 @@ async function runPostLoop(client) {
     console.log("✅ Telegram user ready");
     // ===== LISTEN GROUP =====
     client.addEventHandler(async (event) => {
+        console.log("🔥 Có event tới")
         const message = event.message;
         if (!message) return;
+
+        //console.log(message);
 
         const text = message.message || "";
         const groupId = String(message.chatId);

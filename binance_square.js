@@ -314,7 +314,7 @@ async function openBinanceSquare() {
 
                 await uploadCoverImage(page, article.id);
 
-                await sleep(2000);
+                await sleep(5000);
 
                 const posted = await clickPostButton(page);
 
