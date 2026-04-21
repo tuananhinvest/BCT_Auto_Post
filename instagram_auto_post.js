@@ -124,14 +124,18 @@ async function clickCreateIG(page) {
 }
 
 async function clickPostType(page) {
-    const [postBtn] = await page.$x("//span[text()='Post']");
+    const handle = await page.evaluateHandle(() => {
+        const spans = Array.from(document.querySelectorAll('span'));
+        const el = spans.find(e => e.innerText.trim() === 'Post');
+        return el ? el.closest('[role="button"], div') : null;
+    });
 
-    if (!postBtn) {
+    if (!handle) {
         console.log('❌ Không tìm thấy Post');
         return false;
     }
 
-    await postBtn.click();
+    await handle.asElement().click();
 
     console.log('📝 Chọn Post');
     await sleep(2000);
@@ -139,14 +143,13 @@ async function clickPostType(page) {
 }
 
 async function uploadImageIG(page, articleId) {
-    const imagePath = path.join(__dirname, 'photo', `${articleId}.jpg`);
+    const imagePath = path.join(__dirname, 'photo', `${articleId}-5125359663.jpg`);
 
     if (!fs.existsSync(imagePath)) {
         console.log('❌ Không có ảnh');
         return false;
     }
 
-    // chờ input xuất hiện
     const input = await page.waitForSelector('input[type="file"]', {
         timeout: 10000
     });
@@ -155,22 +158,26 @@ async function uploadImageIG(page, articleId) {
 
     console.log('📸 Upload ảnh IG');
 
-    await sleep(3000);
+    await sleep(2000);
     return true;
 }
 
 async function clickNextIG(page) {
     for (let i = 0; i < 2; i++) {
-        const [nextBtn] = await page.$x("//div[text()='Next']");
+        const handle = await page.evaluateHandle(() => {
+            const divs = Array.from(document.querySelectorAll('div'));
+            const el = divs.find(e => e.innerText.trim() === 'Next');
+            return el || null;
+        });
 
-        if (!nextBtn) {
+        if (!handle) {
             console.log('❌ Không tìm thấy Next');
             return false;
         }
 
-        await nextBtn.click();
-        console.log(`➡️ Next lần ${i + 1}`);
+        await handle.asElement().click();
 
+        console.log(`➡️ Next lần ${i + 1}`);
         await sleep(3000);
     }
 
@@ -206,6 +213,7 @@ async function inputCaptionIG(page, content) {
         await page.keyboard.press('Backspace');
 
         console.log('✍️ Paste caption IG');
+        await sleep(3000);
 
         return true;
 
@@ -216,18 +224,22 @@ async function inputCaptionIG(page, content) {
 }
 
 async function clickShareIG(page) {
-    const [shareBtn] = await page.$x("//div[text()='Share']");
+    const handle = await page.evaluateHandle(() => {
+        const divs = Array.from(document.querySelectorAll('div'));
+        const el = divs.find(e => e.innerText.trim() === 'Share');
+        return el || null;
+    });
 
-    if (!shareBtn) {
+    if (!handle) {
         console.log('❌ Không thấy Share');
         return false;
     }
 
-    await shareBtn.click();
+    await handle.asElement().click();
 
     console.log('🚀 Đăng IG');
 
-    await sleep(5000);
+    await sleep(60000);
     return true;
 }
 
@@ -235,12 +247,12 @@ async function clickShareIG(page) {
 async function postOneInstagram(page, article) {
     console.log(`📝 IG đăng ID ${article.id}`);
 
-    await page.goto('https://www.instagram.com/', {
-        waitUntil: 'domcontentloaded'
-    });
-
-    await sleep(5000);
-
+    //await page.goto('https://www.instagram.com/', {
+    //    waitUntil: 'domcontentloaded'
+    //});
+ 
+    await sleep(1000);
+ 
     // 1. Create
     await clickCreateIG(page);
 
@@ -263,7 +275,8 @@ async function postOneInstagram(page, article) {
     // 6. Share
     const okShare = await clickShareIG(page);
     if (!okShare) return false;
-
+    
+    await sleep(2000);
     await markInstagramDone(article.id);
 
     return true;
@@ -292,11 +305,14 @@ async function runInstagramBot() {
     for (const article of articles) {
         console.log(`📝 IG xử lý ID ${article.id}`);
 
-        // 👉 TẠM: chưa có flow đăng
-        await markInstagramDone(article.id);
+        const success = await postOneInstagram(page, article);
 
-        console.log('🎯 IG DONE (test)');
-        break;
+        if (success) {
+            console.log('🎯 IG DONE → nghỉ');
+            await sleep(60 * 60000);
+            break;
+        }
+
     }
 }
 
