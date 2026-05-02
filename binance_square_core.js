@@ -2,6 +2,7 @@ const puppeteer = require('puppeteer-core')
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { errorSendMessenger } = require('./errorTelegramBot');
 require('dotenv').config();
 
 const COOKIE_PATH = path.join(__dirname, "cookies", "binance.json");
@@ -344,6 +345,7 @@ async function openBinanceSquare() {
             } catch (err) {
 
                 console.error(`❌ Lỗi đăng bài ${article.id}`, err.message);
+                await errorSendMessenger('BCT Binance Square gặp lỗi');
 
             }
 
@@ -352,6 +354,7 @@ async function openBinanceSquare() {
     } catch (err) {
 
         console.error("🚨 Error:", err);
+        await errorSendMessenger('BCT Binance Square gặp lỗi');
 
     } finally {
 
@@ -376,6 +379,7 @@ async function openBinanceSquare() {
         } catch (err) {
 
             console.error("❌ Lỗi vòng lặp:", err.message);
+            await errorSendMessenger('BCT Binance Square gặp lỗi');
 
         }
 

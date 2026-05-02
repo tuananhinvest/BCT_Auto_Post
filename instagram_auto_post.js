@@ -6,6 +6,7 @@ const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { errorSendMessenger } = require('./errorTelegramBot');
 require('dotenv').config();
 
 const dbConfig = {
@@ -323,6 +324,7 @@ async function runInstagramBot() {
             await runInstagramBot();
         } catch (err) {
             console.error('❌ ERROR:', err.message);
+            await errorSendMessenger('BCT Instagram Auto Post gặp lỗi');
         }
 
         console.log('⏳ Chờ 60s...');

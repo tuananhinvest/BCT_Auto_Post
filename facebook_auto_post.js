@@ -6,6 +6,7 @@ const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { errorSendMessenger } = require('./errorTelegramBot');
 require('dotenv').config();
 
 const dbConfig = {
@@ -369,6 +370,7 @@ async function runFacebookBot() {
             await runFacebookBot(); // FB
         } catch (err) {
             console.error('❌ ERROR:', err.message);
+            await errorSendMessenger('BCT Facebook Auto Post gặp lỗi');
         }
 
         console.log('⏳ Chờ 60s...');

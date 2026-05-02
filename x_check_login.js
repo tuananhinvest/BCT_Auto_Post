@@ -1,11 +1,12 @@
 ///Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
 //--remote-debugging-port=9222 \
-//--user-data-dir="$HOME/chrome-debug/x-profile"
+//--user-data-dir="$HOME/chrome-debug/bct-profile"
 
 const puppeteer = require('puppeteer-core');
 const fs = require('fs');
 const path = require('path');
 const mysql = require('mysql2/promise');
+const { errorSendMessenger } = require('./errorTelegramBot');
 require('dotenv').config();
 
 const dbConfig = {
@@ -264,6 +265,7 @@ async function runBot() {
             await runBot();
         } catch (err) {
             console.error('❌ ERROR:', err.message);
+            await errorSendMessenger('BCT X Auto Post gặp lỗi');
         }
 
         console.log('⏳ Chờ 60s...');
