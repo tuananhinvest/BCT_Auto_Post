@@ -368,11 +368,33 @@ async function openBinanceSquare() {
 
 }
 
+function isRestrictedTime() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    // Quy đổi thời gian hiện tại ra phút tính từ đầu ngày để so sánh chính xác
+    const currentMinutes = hours * 60 + minutes;
+
+    const startRestriction = 9 * 60 + 15;  // 9h15 = 555 phút
+    const endRestriction = 10 * 60 + 30;  // 10h30 = 630 phút
+
+    // Nếu thời gian hiện tại nằm trong khoảng chặn, trả về true
+    return currentMinutes >= startRestriction && currentMinutes <= endRestriction;
+}
+
 (async () => {
 
     while (true) {
 
         try {
+             // 1. Kiểm tra khung giờ cấm
+            if (isRestrictedTime()) {
+                console.log('⏳ Đang trong khung giờ nghỉ (09:15 - 10:30). Bot tạm ngưng hoạt động...');
+                // Ngủ ngắn 1 phút (60 giây) rồi check lại, tránh block luồng
+                await sleep(60000); 
+                continue; 
+            }
 
             await openBinanceSquare();
 

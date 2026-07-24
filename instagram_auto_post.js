@@ -110,6 +110,30 @@ async function markInstagramDone(id) {
     await conn.end();
 
     console.log(`✅ Updated instagram_status ID ${id}`);
+    
+}
+
+function shortenInstagramCaption(text, maxLength = 405) {
+    if (!text) return '';
+
+    text = text.trim();
+
+    if (text.length <= maxLength) {
+        return text;
+    }
+
+    // Cắt tạm
+    let shortened = text.slice(0, maxLength - 3);
+
+    // Tìm dấu chấm cuối cùng
+    const lastDot = shortened.lastIndexOf('.');
+
+    // Nếu có dấu chấm hợp lý thì cắt tại đó
+    if (lastDot > 100) {
+        shortened = shortened.slice(0, lastDot + 1);
+    }
+
+    return shortened.trim() + '...';
 }
 
 // ===== FUNCTION SUPPORT POST FLOW =====
@@ -270,7 +294,8 @@ async function postOneInstagram(page, article) {
     if (!okNext) return false;
 
     // 5. Caption
-    const okCaption = await inputCaptionIG(page, article.article);
+    const shortCaption = shortenInstagramCaption(article.article, 411);
+    const okCaption = await inputCaptionIG(page, shortCaption);
     if (!okCaption) return false;
 
     // 6. Share
@@ -317,10 +342,33 @@ async function runInstagramBot() {
     }
 }
 
+function isRestrictedTime() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    // Quy đổi thời gian hiện tại ra phút tính từ đầu ngày để so sánh chính xác
+    const currentMinutes = hours * 60 + minutes;
+
+    const startRestriction = 9 * 60 + 15;  // 9h15 = 555 phút
+    const endRestriction = 10 * 60 + 30;  // 10h30 = 630 phút
+
+    // Nếu thời gian hiện tại nằm trong khoảng chặn, trả về true
+    return currentMinutes >= startRestriction && currentMinutes <= endRestriction;
+}
+
 // ===== LOOP =====
 (async () => {
     while (true) {
         try {
+            // 1. Kiểm tra khung giờ cấm
+            if (isRestrictedTime()) {
+                console.log('⏳ Đang trong khung giờ nghỉ (09:15 - 10:30). Bot tạm ngưng hoạt động...');
+                // Ngủ ngắn 1 phút (60 giây) rồi check lại, tránh block luồng
+                await sleep(60000); 
+                continue; 
+            }
+            
             await runInstagramBot();
         } catch (err) {
             console.error('❌ ERROR:', err.message);

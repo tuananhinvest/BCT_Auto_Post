@@ -224,6 +224,21 @@ async function postOne(page, article) {
 }
 
 // ===== MAIN FLOW =====
+function isRestrictedTime() {
+    const now = new Date();
+    const hours = now.getHours();
+    const minutes = now.getMinutes();
+
+    // Quy đổi thời gian hiện tại ra phút tính từ đầu ngày để so sánh chính xác
+    const currentMinutes = hours * 60 + minutes;
+
+    const startRestriction = 9 * 60 + 15;  // 9h15 = 555 phút
+    const endRestriction = 10 * 60 + 30;  // 10h30 = 630 phút
+
+    // Nếu thời gian hiện tại nằm trong khoảng chặn, trả về true
+    return currentMinutes >= startRestriction && currentMinutes <= endRestriction;
+}
+
 async function runBot() {
     const { page } = await connectExisting();
 
@@ -262,13 +277,23 @@ async function runBot() {
 (async () => {
     while (true) {
         try {
+            // 1. Kiểm tra khung giờ cấm
+            if (isRestrictedTime()) {
+                console.log('⏳ Đang trong khung giờ nghỉ (09:15 - 10:30). Bot tạm ngưng hoạt động...');
+                // Ngủ ngắn 1 phút (60 giây) rồi check lại, tránh block luồng
+                await sleep(60000); 
+                continue; 
+            }
+
+            // 2. Chạy bot nếu không bị cấm
             await runBot();
+
         } catch (err) {
             console.error('❌ ERROR:', err.message);
             await errorSendMessenger('BCT X Auto Post gặp lỗi');
         }
 
-        console.log('⏳ Chờ 60s...');
+        console.log('⏳ Hoàn thành chu kỳ / Gặp lỗi. Chờ 60s để vào chu kỳ mới...');
         await sleep(60000);
     }
 })();
